@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-
+	"net/url" // 新添加
+	"os"      // 新添加
 	"github.com/gin-gonic/gin"
 )
+
 
 type OpenAIRequest struct {
 	Model    string `json:"model"`
@@ -87,6 +89,21 @@ func chatWithDuckDuckGo(c *gin.Context, messages []struct {
 	statusURL := "https://duckduckgo.com/duckchat/v1/status"
 	chatURL := "https://duckduckgo.com/duckchat/v1/chat"
 
+	proxyStr := os.Getenv("HTTP_PROXY") // 从环境变量中获取代理地址
+	proxyURL, err := url.Parse(proxyStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid proxy URL"})
+		return
+	}
+
+	transport := &http.Transport{
+		Proxy: http.ProxyURL(proxyURL),
+	}
+
+	client := &http.Client{
+		Transport: transport,
+	}
+
 	// get vqd_4
 	req, err := http.NewRequest("GET", statusURL, nil)
 	if err != nil {
@@ -99,7 +116,7 @@ func chatWithDuckDuckGo(c *gin.Context, messages []struct {
 		req.Header.Set(key, value)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -130,7 +147,7 @@ func chatWithDuckDuckGo(c *gin.Context, messages []struct {
 		req.Header.Set(key, value)
 	}
 
-	resp, err = http.DefaultClient.Do(req)
+	resp, err = client.Do(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -235,6 +252,7 @@ func chatWithDuckDuckGo(c *gin.Context, messages []struct {
 		}
 	}
 }
+
 
 func stringPtr(s string) *string {
 	return &s
